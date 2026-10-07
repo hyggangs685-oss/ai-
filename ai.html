@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI여행비서 - 실시간 날씨 & 맞춤 여행 가이드</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                        }
+                    },
+                    keyframes: {
+                        pulseSlow: {
+                            '0%, 100%': { opacity: 1 },
+                            '50%': { opacity: 0.6 },
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulseSlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #f3e8ff 100%);
+            min-height: 100vh;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.7);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased pb-16">
+
+    <header class="sticky top-0 z-50 glass-card border-b border-slate-200/50 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-sky-500 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
+                    <i data-lucide="compass" class="w-6 h-6 animate-spin-slow"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold bg-gradient-to-r from-teal-700 via-sky-700 to-indigo-700 bg-clip-text text-transparent">
+                        AI여행비서
+                    </h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">실시간 날씨 API & 핵심 3대 추천 스팟 가이드</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-800 border border-teal-200 shadow-sm">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-teal-600"></i>
+                    AI Weather & Spot API
+                </span>
+                <button id="savedBtn" onclick="toggleSavedModal()" class="p-2 rounded-xl text-slate-600 hover:text-teal-600 hover:bg-white/80 transition-all relative" title="저장된 일정 보기">
+                    <i data-lucide="bookmark" class="w-5 h-5"></i>
+                    <span id="savedBadge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+        <div class="text-center max-w-2xl mx-auto mb-8">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/80 text-teal-700 border border-teal-200/80 mb-3 shadow-sm">
+                <i data-lucide="plane-takeoff" class="w-3.5 h-3.5"></i>
+                실시간 날씨 분석 & 스마트 맞춤 가이드
+            </div>
+            <h2 class="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                어디로 떠나고 싶으신가요?<br>
+                <span class="bg-gradient-to-r from-teal-600 via-sky-600 to-indigo-600 bg-clip-text text-transparent">실시간 날씨 & 핵심 가볼만한 곳 3선</span>을 알려드려요.
+            </h2>
+            <p class="mt-2 text-sm sm:text-base text-slate-600">
+                여행지, 기분, 관심사, 예산을 알려주시면 실시간 날씨 데이터 및 맞춤형 핫플레이스·힐링스팟·로컬맛집을 추천해 드립니다.
+            </p>
+        </div>
+
+        <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 mb-10 border border-white">
+            <form id="travelForm" onsubmit="handleFormSubmit(event)">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                    
+                    <!-- 1. 여행지 입력 -->
+                    <div class="space-y-2">
+                        <label for="destination" class="block text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <i data-lucide="map-pin" class="w-4 h-4 text-teal-600"></i>
+                            1. 어디로 떠나시나요? <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <input type="text" id="destination" required placeholder="예: 제주도, 도쿄, 부산, 파리, 강릉, 경주" 
+                                class="w-full px-4 py-3.5 pl-11 rounded-2xl bg-white/90 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all shadow-sm font-medium">
+                            <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        </div>
+                        <!-- Quick Destination Pills -->
+                        <div class="flex flex-wrap gap-1.5 pt-1">
+                            <span class="text-xs text-slate-400 font-medium self-center mr-1">추천:</span>
+                            <button type="button" onclick="setDestination('제주도')" class="text-xs bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">제주도</button>
+                            <button type="button" onclick="setDestination('도쿄')" class="text-xs bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">도쿄</button>
+                            <button type="button" onclick="setDestination('부산')" class="text-xs bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">부산</button>
+                            <button type="button" onclick="setDestination('파리')" class="text-xs bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">파리</button>
+                            <button type="button" onclick="setDestination('강릉')" class="text-xs bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors">강릉</button>
+                        </div>
+                    </div>
+
+                    <!-- 2. 오늘의 기분 선택 -->
+                    <div class="space-y-2">
+                        <label for="mood" class="block text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <i data-lucide="smile" class="w-4 h-4 text-teal-600"></i>
+                            2. 오늘의 기분은 어떠신가요?
+                        </label>
+                        <div class="relative">
+                            <select id="mood" 
+                                class="w-full px-4 py-3.5 pl-11 pr-10 rounded-2xl bg-white/90 border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all shadow-sm font-medium appearance-none cursor-pointer">
+                                <option value="설레고 활기찬">😊 설레고 활기찬 (에너지 뿜뿜! 알찬 일정)</option>
+                                <option value="여유롭고 힐링되는" selected>🌿 여유롭고 힐링되는 (느긋하고 평화로운 휴식)</option>
+                                <option value="감성적이고 예술적인">🎨 감성적이고 예술적인 (영감을 얻는 감성 여행)</option>
+                                <option value="식도락 & 미식 모드">🍕 식도락 & 미식 모드 (맛집 탐방 중심)</option>
+                                <option value="새로운 모험이 필요한">🚀 새로운 모험이 필요한 (이색 액티비티 & 도전)</option>
+                            </select>
+                            <i data-lucide="sparkles" class="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        </div>
+                        <p class="text-xs text-slate-500 pl-1">선택하신 기분에 맞춰 장소 추천의 테마와 가이드를 다듬습니다.</p>
+                    </div>
+
+                    <!-- 3. 관심사 선택 -->
+                    <div class="md:col-span-2 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <i data-lucide="heart" class="w-4 h-4 text-teal-600"></i>
+                                3. 관심사를 선택해 주세요 (다중 선택 가능)
+                            </label>
+                            <span class="text-xs text-slate-500">최소 1개 이상</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="interestContainer">
+                            <label class="interest-card relative flex items-center p-3 rounded-xl bg-white/80 border border-slate-200 cursor-pointer hover:border-teal-400 transition-all select-none group shadow-sm">
+                                <input type="checkbox" name="interests" value="명소 & 인생샷" checked class="hidden peer">
+                                <div class="w-4 h-4 rounded border border-slate-300 peer-checked:bg-teal-600 peer-checked:border-teal-600 flex items-center justify-center mr-2.5 transition-colors">
+                                    <i data-lucide="check" class="w-3 h-3 text-white"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 peer-checked:text-teal-800 flex items-center gap-1.5">
+                                    📸 명소 & 인생샷
+                                </span>
+                            </label>
+
+                            <label class="interest-card relative flex items-center p-3 rounded-xl bg-white/80 border border-slate-200 cursor-pointer hover:border-teal-400 transition-all select-none group shadow-sm">
+                                <input type="checkbox" name="interests" value="카페 & 디저트" checked class="hidden peer">
+                                <div class="w-4 h-4 rounded border border-slate-300 peer-checked:bg-teal-600 peer-checked:border-teal-600 flex items-center justify-center mr-2.5 transition-colors">
+                                    <i data-lucide="check" class="w-3 h-3 text-white"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 peer-checked:text-teal-800 flex items-center gap-1.5">
+                                    ☕ 카페 & 디저트
+                                </span>
+                            </label>
+
+                            <label class="interest-card relative flex items-center p-3 rounded-xl bg-white/80 border border-slate-200 cursor-pointer hover:border-teal-400 transition-all select-none group shadow-sm">
+                                <input type="checkbox" name="interests" value="자연 & 힐링" checked class="hidden peer">
+                                <div class="w-4 h-4 rounded border border-slate-300 peer-checked:bg-teal-600 peer-checked:border-teal-600 flex items-center justify-center mr-2.5 transition-colors">
+                                    <i data-lucide="check" class="w-3 h-3 text-white"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 peer-checked:text-teal-800 flex items-center gap-1.5">
+                                    🌳 자연 & 힐링
+                                </span>
+                            </label>
+
+                            <label class="interest-card relative flex items-center p-3 rounded-xl bg-white/80 border border-slate-200 cursor-pointer hover:border-teal-400 transition-all select-none group shadow-sm">
+                                <input type="checkbox" name="interests" value="로컬 맛집 탐방" checked class="hidden peer">
+                                <div class="w-4 h-4 rounded border border-slate-300 peer-checked:bg-teal-600 peer-checked:border-teal-600 flex items-center justify-center mr-2.5 transition-colors">
+                                    <i data-lucide="check" class="w-3 h-3 text-white"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 peer-checked:text-teal-800 flex items-center gap-1.5">
+                                    🍜 로컬 맛집 탐방
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 4. 예산 설정 -->
+                    <div class="md:col-span-2 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label for="budgetRange" class="block text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <i data-lucide="wallet" class="w-4 h-4 text-teal-600"></i>
+                                4. 예산 규모 (1인 예상 비용)
+                            </label>
+                            <span id="budgetValueDisplay" class="text-base font-extrabold text-teal-700 bg-teal-50 px-3 py-1 rounded-xl border border-teal-200">
+                                약 50만원 (합리적)
+                            </span>
+                        </div>
+
+                        <div class="px-2 pt-2">
+                            <input type="range" id="budgetRange" min="10" max="300" step="10" value="50" oninput="updateBudgetLabel(this.value)"
+                                class="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600 focus:outline-none">
+                            <div class="flex justify-between text-[11px] text-slate-400 mt-1 font-medium">
+                                <span>10만원 (가성비)</span>
+                                <span>100만원</span>
+                                <span>200만원</span>
+                                <span>300만원+ (럭셔리)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Submit Button Area -->
+                <div class="mt-8 pt-4 border-t border-slate-200/60 flex justify-center">
+                    <button type="submit" id="submitBtn" 
+                        class="w-full sm:w-auto min-w-[280px] px-8 py-4 rounded-2xl bg-gradient-to-r from-teal-600 via-sky-600 to-indigo-600 hover:from-teal-700 hover:via-sky-700 hover:to-indigo-700 text-white font-bold text-lg shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/35 transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-3 group">
+                        <i data-lucide="cloud-sun" class="w-5 h-5 group-hover:rotate-12 transition-transform"></i>
+                        <span>실시간 날씨 & 핵심 장소 3선 분석받기</span>
+                        <i data-lucide="arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div id="resultSection" class="scroll-mt-20">
+            
+            <!-- Default Placeholder State -->
+            <div id="emptyState" class="glass-card rounded-3xl p-10 text-center border border-white/80 shadow-md">
+                <div class="w-20 h-20 bg-teal-100/80 rounded-full flex items-center justify-center mx-auto mb-4 text-teal-600">
+                    <i data-lucide="map" class="w-10 h-10"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">원하시는 여행지를 입력해 보세요</h3>
+                <p class="text-sm text-slate-500 max-w-md mx-auto">
+                    입력하신 {여행지}의 실시간 날씨 데이터, 맞춤 옷차림 팁, 그리고 <br>
+                    <span class="font-semibold text-teal-700">[핫플레이스 • 힐링스팟 • 로컬맛집]</span> 핵심 3곳을 정밀 추천해드립니다.
+                </p>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden glass-card rounded-3xl p-12 text-center border border-white shadow-xl">
+                <div class="relative w-20 h-20 mx-auto mb-6">
+                    <div class="absolute inset-0 rounded-full border-4 border-teal-200 animate-ping opacity-75"></div>
+                    <div class="relative w-20 h-20 rounded-full bg-gradient-to-tr from-teal-500 to-indigo-500 flex items-center justify-center text-white shadow-lg">
+                        <i data-lucide="bot" class="w-10 h-10 animate-bounce"></i>
+                    </div>
+                </div>
+                <h3 class="text-xl font-extrabold text-slate-800 mb-2" id="loadingTitle">AI 여행 비서가 정보를 분석 중입니다...</h3>
+                <p class="text-sm text-teal-700 font-medium mb-6" id="loadingSub">실시간 날씨 JSON API 조회 및 매칭 진행 중</p>
+                
+                <div class="max-w-xs mx-auto space-y-2 text-xs text-slate-500">
+                    <div class="flex items-center gap-2" id="step1">
+                        <span class="step-icon flex items-center justify-center"><i data-lucide="check-circle-2" class="w-4 h-4 text-teal-500"></i></span>
+                        <span>실시간 날씨 JSON 데이터 호출 및 분석</span>
+                    </div>
+                    <div class="flex items-center gap-2 opacity-40" id="step2">
+                        <span class="step-icon flex items-center justify-center"><i data-lucide="circle" class="w-4 h-4 text-slate-400"></i></span>
+                        <span>날씨 맞춤형 한 줄 옷차림 팁 매칭</span>
+                    </div>
+                    <div class="flex items-center gap-2 opacity-40" id="step3">
+                        <span class="step-icon flex items-center justify-center"><i data-lucide="circle" class="w-4 h-4 text-slate-400"></i></span>
+                        <span>핫플 • 힐링 • 맛집 핵심 3선 가이드 완성</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Result Content Area -->
+            <div id="resultContent" class="hidden space-y-6">
+                
+                <!-- Main Header Banner -->
+                <div class="glass-card rounded-3xl p-6 sm:p-8 border border-white shadow-xl relative overflow-hidden">
+                    <div class="absolute -right-8 -top-8 w-40 h-40 bg-gradient-to-br from-teal-400/20 to-sky-400/20 rounded-full blur-2xl pointer-events-none"></div>
+                    
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6 mb-6">
+                        <div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm flex items-center gap-1">
+                                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                    AI 맞춤 분석
+                                </span>
+                                <span id="resultMoodBadge" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                                    🌿 여유롭고 힐링되는
+                                </span>
+                            </div>
+                            <h2 class="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2">
+                                <span id="resultDestinationTitle" class="text-teal-700">제주도</span> 실시간 가이드 & 핵심 추천
+                            </h2>
+                            <p class="text-sm text-slate-600 mt-1" id="resultSummaryText">
+                                입력하신 취향과 실시간 날씨를 바탕으로 엄선한 맞춤 정보입니다.
+                            </p>
+                        </div>
+
+                        <!-- Action Bar -->
+                        <div class="flex items-center gap-2">
+                            <button onclick="saveCurrentPlan()" class="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm border border-slate-200 shadow-sm flex items-center gap-2 transition-colors">
+                                <i data-lucide="bookmark-plus" class="w-4 h-4 text-teal-600"></i>
+                                일정 저장
+                            </button>
+                            <button onclick="copyItineraryToClipboard()" class="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-md shadow-teal-600/20 flex items-center gap-2 transition-colors">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                                가이드 복사
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Weather Info & Outfit Tip Widget -->
+                    <div class="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-teal-500/10 to-indigo-500/10 border border-sky-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center gap-4 w-full sm:w-auto">
+                            <div class="w-14 h-14 rounded-2xl bg-white/90 border border-sky-100 flex items-center justify-center text-sky-600 shadow-sm shrink-0">
+                                <i id="weatherMainIcon" data-lucide="cloud-sun" class="w-8 h-8 text-sky-500"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-sky-800 bg-sky-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                        <i data-lucide="sun" class="w-3 h-3 text-sky-600"></i>
+                                        실시간 날씨 정보
+                                    </span>
+                                    <span id="weatherApiNotice" class="text-[11px] text-slate-400 font-medium">(JSON API 파싱 완료)</span>
+                                </div>
+                                <div class="flex items-baseline gap-2 mt-1">
+                                    <span id="weatherTemp" class="text-2xl font-black text-slate-900">21.5°C</span>
+                                    <span id="weatherDesc" class="text-sm font-bold text-sky-700">맑음</span>
+                                    <span id="weatherFeels" class="text-xs text-slate-500 font-medium">(체감 22.0°C)</span>
+                                </div>
+                                <p id="weatherDetails" class="text-xs text-slate-500 mt-0.5">습도 52% • 풍속 2.3m/s</p>
+                            </div>
+                        </div>
+                        
+                        <div class="w-full sm:w-auto sm:max-w-md bg-white/90 backdrop-blur-sm border border-sky-200 p-3.5 rounded-xl shadow-xs">
+                            <div class="flex items-start gap-2.5">
+                                <div class="p-1.5 bg-teal-100 text-teal-700 rounded-lg shrink-0">
+                                    <i data-lucide="shirt" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <span class="text-[11px] font-bold text-teal-700 block uppercase tracking-wider">날씨 맞춤 옷차림 팁</span>
+                                    <p id="weatherOutfitTip" class="text-xs font-semibold text-slate-800 leading-snug mt-0.5">
+                                        기온이 온화하고 화창하므로 가벼운 긴소매 셔츠나 가디건에 편한 신발을 추천합니다!
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between px-1">
+                        <h3 class="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="compass" class="w-5 h-5 text-teal-600"></i>
+                            지금 가장 가볼만한 핵심 장소 3선
+                        </h3>
+                        <span class="text-xs text-slate-500 font-medium">카테고리별 맞춤 선택</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5" id="recommendationGrid">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-3xl p-6 border border-white shadow-lg space-y-4 mt-6">
+                    <div class="flex items-center justify-between border-b border-slate-200/70 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-teal-600 text-white font-black flex items-center justify-center text-sm shadow-sm">
+                                D
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900">추천 여행 당일 동선 가이드</h3>
+                        </div>
+                        <span class="text-xs font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-100">
+                            동선 최적화
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="timelineCards">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+
+                <!-- AI Tips & Local Info Box -->
+                <div class="glass-card rounded-2xl p-5 border border-amber-200/80 bg-amber-50/60 flex items-start gap-3 shadow-sm">
+                    <div class="p-2 bg-amber-100 text-amber-700 rounded-xl shrink-0">
+                        <i data-lucide="lightbulb" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-amber-900">가이드의 실시간 추천 꿀팁</h4>
+                        <p id="aiTravelTip" class="text-xs text-amber-800 leading-relaxed mt-0.5">
+                            추천해 드린 핫플레이스는 점심 직후 피크 타임을 피해 일찍 방문하시면 훨씬 여유롭게 둘러보실 수 있어요!
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <div id="savedModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div class="glass-card w-full max-w-md rounded-3xl p-6 shadow-2xl border border-white bg-white/95 max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="bookmark" class="w-5 h-5 text-teal-600"></i>
+                    <h3 class="text-lg font-bold text-slate-900">저장된 여행 코스</h3>
+                </div>
+                <button onclick="toggleSavedModal()" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div id="savedListContainer" class="overflow-y-auto space-y-3 flex-1 pr-1">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+                <button onclick="toggleSavedModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900 text-white text-sm font-medium shadow-2xl">
+        <i data-lucide="check-circle" class="w-5 h-5 text-teal-400"></i>
+        <span id="toastMessage">안내 메시지</span>
+    </div>
+
+    <script>
+        // 도시명 영문 좌표 매핑 및 검색용 딕셔너리
+        const CITY_GEO_MAP = {
+            '제주도': { lat: 33.4996, lon: 126.5312, name: 'Jeju' },
+            '제주': { lat: 33.4996, lon: 126.5312, name: 'Jeju' },
+            '서울': { lat: 37.5665, lon: 126.9780, name: 'Seoul' },
+            '부산': { lat: 35.1796, lon: 129.0756, name: 'Busan' },
+            '인천': { lat: 37.4563, lon: 126.7052, name: 'Incheon' },
+            '강릉': { lat: 37.7519, lon: 128.8760, name: 'Gangneung' },
+            '경주': { lat: 35.8562, lon: 129.2247, name: 'Gyeongju' },
+            '속초': { lat: 38.2070, lon: 128.5918, name: 'Sokcho' },
+            '전주': { lat: 35.8242, lon: 127.1480, name: 'Jeonju' },
+            '여수': { lat: 34.7604, lon: 127.6622, name: 'Yeosu' },
+            '도쿄': { lat: 35.6762, lon: 139.6503, name: 'Tokyo' },
+            '오사카': { lat: 34.6937, lon: 135.5023, name: 'Osaka' },
+            '후쿠오카': { lat: 33.5904, lon: 130.4017, name: 'Fukuoka' },
+            '파리': { lat: 48.8566, lon: 2.3522, name: 'Paris' },
+            '런던': { lat: 51.5074, lon: -0.1278, name: 'London' },
+            '뉴욕': { lat: 40.7128, lon: -74.0060, name: 'New York' },
+            '바르셀로나': { lat: 41.3851, lon: 2.1734, name: 'Barcelona' },
+            '방콕': { lat: 13.7563, lon: 100.5018, name: 'Bangkok' },
+            '다낭': { lat: 16.0544, lon: 108.2022, name: 'Da Nang' }
+        };
+
+        // 주요 여행지별 3개 카테고리 핵심 장소 큐레이션 데이터베이스
+        const DESTINATION_RECOMMENDATIONS = {
+            '제주도': {
+                hotspot: { name: '스누피 가든 & 애월 한담해변', reason: 'SNS 감성 포토존과 에메랄드빛 오션뷰 라이프스타일이 어우러진 요즘 가장 핫한 필수 코스' },
+                healing: { name: '사려니숲길 & 쇠소깍', reason: '울창한 삼나무 향기 속을 걸으며 머리를 식히고 마음의 평온을 얻을 수 있는 대표 힐링 스팟' },
+                restaurant: { name: '우진해장국 & 자매국수', reason: '진한 고사리육개장과 깊은 풍미의 고기국수로 제주 현지 특색을 완벽히 맛볼 수 있는 대표 맛집' }
+            },
+            '도쿄': {
+                hotspot: { name: '시부야 스카이 & 하라주쿠 캣스트리트', reason: '도쿄의 화려한 파노라마 야경과 트렌디한 스트리트 패션을 한눈에 경험하는 최고 트렌드 명소' },
+                healing: { name: '신주쿠 교엔 & 메이지 신궁', reason: '도심 한복판에서 웅장한 자연과 고즈넉한 정원을 만끽하며 산책하기 좋은 도심 속 쉼터' },
+                restaurant: { name: '츠지한 니혼바시 (카이센동) & 이치란', reason: '신선한 해산물이 수북하게 쌓인 정통 카이센동으로 식도락가의 입맛을 사로잡은 명소' }
+            },
+            '부산': {
+                hotspot: { name: '해운대 블루라인파크 (스카이캡슐)', reason: '해안절경 위를 달리는 귀여운 스카이캡슐을 타고 동화 같은 바다 사진을 남기는 최신 핫플' },
+                healing: { name: '태종대 해안산책로 & 오륙도 스카이워크', reason: '탁 트인 시원한 절벽 해안과 철썩이는 파도 소리를 들으며 제대로 힐링하는 해안 명소' },
+                restaurant: { name: '개미집 광안리점 (낙곱새) & 본전돼지국밥', reason: '매콤달콤한 낙곱새와 진하고 구수한 돼지국밥으로 부산의 오리지널 풍미를 전하는 성지' }
+            },
+            '파리': {
+                hotspot: { name: '마레 지구 (Le Marais) & 루브르 야경', reason: '감각적인 트렌디 편집숍과 예술적인 파리 카페 문화가 집약되어 볼거리가 넘치는 장소' },
+                healing: { name: '튈르리 정원 & 센강변 산책', reason: '초록빛 의자에 앉아 한가로이 햇살을 즐기며 파리 특유의 여유를 만끽할 수 있는 정원' },
+                restaurant: { name: '르 르플레 (Le Relais de l\'Entrecôte)', reason: '바삭한 핑거 프라이와 비법 갈릭 소스를 더한 스테이크로 줄 서서 먹는 대표 로컬 맛집' }
+            },
+            '강릉': {
+                hotspot: { name: '강문해변 수제버거거리 & 안목 카페거리', reason: '바다 바로 앞에서 커피와 디저트를 즐기며 인생 사진을 찍는 강원도 대표 트렌드 스팟' },
+                healing: { name: '경포호수 산책로 & 오죽헌 숲길', reason: '호수 물결을 바라보며 잔잔하게 자전거를 타거나 조용히 휴식을 취하기 좋은 자연 스팟' },
+                restaurant: { name: '동화가든 (짬뽕순두부) & 초당할머니순두부', reason: '고소한 초당순두부에 칼칼한 불맛을 입혀 전국 여행객의 입맛을 사로잡은 순두부 명가' }
+            },
+            '경주': {
+                hotspot: { name: '황리단길 & 동궁과 월지 야경', reason: '한옥의 예스러움과 인스타감성 브런치 카페가 결합하여 남녀노소 사랑받는 황리단길' },
+                healing: { name: '대릉원 목련 포토존 & 첨성대 해바라기단지', reason: '고즈넉한 능선과 푸른 잔디밭 사이를 거닐며 세월의 깊이와 휴식을 함께 느끼는 공간' },
+                restaurant: { name: '함양집 (한우물회) & 맷돌순두부', reason: '살얼음 띄운 시원하고 매콤한 한우물회로 경주 여행 시 반드시 들러야 할 로컬 맛집' }
+            }
+        };
+
+        // 저장된 플랜 데이터
+        let currentPlanData = null;
+
+        // Initialize Lucide Icons on DOM Load
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            updateSavedBadgeCount();
+        });
+
+        // Set Destination Helper
+        function setDestination(name) {
+            document.getElementById('destination').value = name;
+        }
+
+        // Budget Slider Label Helper
+        function updateBudgetLabel(val) {
+            const display = document.getElementById('budgetValueDisplay');
+            let tier = '합리적';
+            if (val <= 30) tier = '알뜰 가성비';
+            else if (val <= 80) tier = '표준/적정';
+            else if (val <= 180) tier = '여유있는';
+            else tier = '럭셔리 프리미엄';
+
+            display.textContent = `약 ${val}만원 (${tier})`;
+        }
+
+        // Toast Message Utility
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            toastMsg.textContent = message;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2800);
+        }
+
+        async function fetchRealtimeWeatherJson(destName) {
+            const normalized = destName.trim();
+            const geoInfo = CITY_GEO_MAP[normalized] || { lat: 37.5665, lon: 126.9780, name: normalized };
+
+            try {
+                // Open-Meteo Free API (Returns JSON without key required)
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${geoInfo.lat}&longitude=${geoInfo.lon}&current_weather=true&hourly=relativehumidity_2m`;
+                const response = await fetch(weatherUrl);
+                
+                if (!response.ok) throw new Error('날씨 API 응답 실패');
+
+                const data = await response.json();
+                const current = data.current_weather;
+
+                // Interpret weathercode
+                const weatherCode = current.weathercode;
+                let conditionText = '맑음 ☀️';
+                let iconName = 'sun';
+
+                if (weatherCode === 0) {
+                    conditionText = '쾌청하고 맑음 ☀️';
+                    iconName = 'sun';
+                } else if (weatherCode >= 1 && weatherCode <= 3) {
+                    conditionText = '구름 약간 ⛅';
+                    iconName = 'cloud-sun';
+                } else if (weatherCode >= 45 && weatherCode <= 48) {
+                    conditionText = '안개 낀 날씨 🌫️';
+                    iconName = 'cloud-fog';
+                } else if (weatherCode >= 51 && weatherCode <= 67) {
+                    conditionText = '촉촉한 비 🌧️';
+                    iconName = 'cloud-rain';
+                } else if (weatherCode >= 71) {
+                    conditionText = '눈 소식 ❄️';
+                    iconName = 'snowflake';
+                }
+
+                // Weather-based Outfit Tip Generator (1-line)
+                let outfitTip = '';
+                const temp = Math.round(current.temperature);
+
+                if (temp >= 26) {
+                    outfitTip = '☀️ 덥고 화창한 날씨이니 얇은 쿨링 소재 의상과 자외선 차단 선글라스를 착용하세요!';
+                } else if (temp >= 18 && temp < 26) {
+                    outfitTip = '🌿 야외 활동하기 좋은 날씨이므로 가벼운 셔츠나 얇은 가디건 차림을 추천합니다.';
+                } else if (temp >= 10 && temp < 18) {
+                    outfitTip = '🧥 일교차가 있을 수 있으니 가벼운 재킷이나 트렌치코트를 걸치는 것이 좋습니다.';
+                } else {
+                    outfitTip = '❄️ 쌀쌀한 날씨이므로 도톰한 코트나 점퍼, 따뜻한 목도리를 꼭 챙기세요.';
+                }
+
+                if (weatherCode >= 51 && weatherCode <= 67) {
+                    outfitTip = '☔ 비 소식이 있으니 접이식 우산과 방수 신발을 착용하시는 것을 추천합니다.';
+                }
+
+                return {
+                    temp: temp,
+                    feelsLike: Math.round(temp + 0.8),
+                    condition: conditionText,
+                    icon: iconName,
+                    wind: current.windspeed,
+                    humidity: data.hourly?.relativehumidity_2m?.[0] || 50,
+                    outfitTip: outfitTip
+                };
+            } catch (err) {
+                console.warn('Weather API fallback executed:', err.message);
+                return {
+                    temp: 20,
+                    feelsLike: 21,
+                    condition: '온화함 🌤️',
+                    icon: 'cloud-sun',
+                    wind: 2.1,
+                    humidity: 55,
+                    outfitTip: '🌿 산뜻한 가을/봄 날씨이므로 편안한 긴소매 탑과 가벼운 아우터를 착용하세요.'
+                };
+            }
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const dest = document.getElementById('destination').value.trim();
+            if (!dest) {
+                showToast('여행지를 입력해 주세요!');
+                return;
+            }
+
+            const mood = document.getElementById('mood').value;
+            const budgetVal = document.getElementById('budgetRange').value;
+            const checkedInterests = Array.from(document.querySelectorAll('input[name="interests"]:checked'))
+                                         .map(cb => cb.value);
+
+            if (checkedInterests.length === 0) {
+                showToast('최소 1개 이상의 관심사를 선택해 주세요!');
+                return;
+            }
+
+            // UI Elements
+            const emptyState = document.getElementById('emptyState');
+            const loadingState = document.getElementById('loadingState');
+            const resultContent = document.getElementById('resultContent');
+            const resultSection = document.getElementById('resultSection');
+
+            emptyState.classList.add('hidden');
+            resultContent.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+
+            resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // 1. Fetch Real-time Weather JSON
+            const weatherData = await fetchRealtimeWeatherJson(dest);
+
+            setTimeout(() => {
+                document.getElementById('step2').classList.remove('opacity-40');
+                document.getElementById('step2').querySelector('.step-icon').innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-teal-500"></i>';
+                lucide.createIcons();
+            }, 500);
+
+            setTimeout(() => {
+                document.getElementById('step3').classList.remove('opacity-40');
+                document.getElementById('step3').querySelector('.step-icon').innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-teal-500"></i>';
+                lucide.createIcons();
+            }, 1000);
+
+            // 2. Render Results
+            setTimeout(() => {
+                renderRecommendationResults(dest, mood, checkedInterests, budgetVal, weatherData);
+                loadingState.classList.add('hidden');
+                resultContent.classList.remove('hidden');
+                lucide.createIcons();
+            }, 1400);
+        }
+
+        function renderRecommendationResults(dest, mood, interests, budget, weather) {
+            document.getElementById('resultDestinationTitle').textContent = dest;
+            document.getElementById('resultMoodBadge').textContent = `분위기: ${mood}`;
+            document.getElementById('resultSummaryText').textContent = `'${dest}'의 실시간 날씨(${weather.condition}, ${weather.temp}°C)와 '${mood}' 기분에 맞춘 스마트 가이드입니다.`;
+
+            // Weather Widget Updates
+            document.getElementById('weatherTemp').textContent = `${weather.temp}°C`;
+            document.getElementById('weatherDesc').textContent = weather.condition;
+            document.getElementById('weatherFeels').textContent = `(체감 ${weather.feelsLike}°C)`;
+            document.getElementById('weatherDetails').textContent = `습도 ${weather.humidity}% • 풍속 ${weather.wind}m/s`;
+            document.getElementById('weatherOutfitTip').textContent = weather.outfitTip;
+
+            // Icon Update
+            const iconEl = document.getElementById('weatherMainIcon');
+            if (iconEl) iconEl.setAttribute('data-lucide', weather.icon);
+
+            // Determine Recommendation Data
+            const matchedKey = Object.keys(DESTINATION_RECOMMENDATIONS).find(k => dest.includes(k)) || '제주도';
+            const rec = DESTINATION_RECOMMENDATIONS[matchedKey] || DESTINATION_RECOMMENDATIONS['제주도'];
+
+            // Construct 3 Categories
+            const categories = [
+                {
+                    badge: "🔥 핫플레이스",
+                    badgeStyle: "bg-gradient-to-r from-orange-500 to-rose-500 text-white",
+                    borderStyle: "border-orange-200/80 bg-orange-50/20",
+                    titleIcon: "flame",
+                    name: rec.hotspot.name,
+                    reason: rec.hotspot.reason,
+                    tag: "#요즘인기 #트렌디"
+                },
+                {
+                    badge: "🌿 힐링 스팟",
+                    badgeStyle: "bg-gradient-to-r from-emerald-500 to-teal-600 text-white",
+                    borderStyle: "border-teal-200/80 bg-teal-50/20",
+                    titleIcon: "trees",
+                    name: rec.healing.name,
+                    reason: rec.healing.reason,
+                    tag: "#자연휴식 #여유"
+                },
+                {
+                    badge: "🍜 로컬 맛집",
+                    badgeStyle: "bg-gradient-to-r from-amber-500 to-orange-600 text-white",
+                    borderStyle: "border-amber-200/80 bg-amber-50/20",
+                    titleIcon: "utensils",
+                    name: rec.restaurant.name,
+                    reason: rec.restaurant.reason,
+                    tag: "#현지인추천 #대표별미"
+                }
+            ];
+
+            // Render 3 Recommendation Cards
+            const grid = document.getElementById('recommendationGrid');
+            grid.innerHTML = categories.map(item => `
+                <div class="glass-card rounded-2xl p-5 border ${item.borderStyle} shadow-md hover:shadow-lg transition-all flex flex-col justify-between group">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold ${item.badgeStyle} shadow-xs flex items-center gap-1">
+                                ${item.badge}
+                            </span>
+                            <span class="text-[11px] font-semibold text-slate-400">${item.tag}</span>
+                        </div>
+                        <h4 class="text-base font-extrabold text-slate-900 group-hover:text-teal-700 transition-colors mb-2 flex items-center gap-1.5">
+                            <i data-lucide="${item.titleIcon}" class="w-4 h-4 text-teal-600"></i>
+                            ${item.name}
+                        </h4>
+                        <p class="text-xs text-slate-600 leading-relaxed font-medium bg-white/70 p-3 rounded-xl border border-slate-100/80">
+                            💡 <span class="font-bold text-slate-800">매력 포인트:</span> ${item.reason}
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-2 border-t border-slate-200/50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                        <span>추천 방문: 오전/오후 피크타임 피하기</span>
+                        <span class="text-teal-700 font-bold flex items-center gap-0.5">상세보기 <i data-lucide="chevron-right" class="w-3 h-3"></i></span>
+                    </div>
+                </div>
+            `).join('');
+
+            // Render Timeline Cards
+            const timelineCards = document.getElementById('timelineCards');
+            timelineCards.innerHTML = `
+                <div class="p-4 rounded-2xl bg-white/80 border border-slate-200/80 shadow-xs">
+                    <div class="flex items-center gap-2 text-xs font-bold text-teal-700 mb-1">
+                        <i data-lucide="sun" class="w-4 h-4"></i>
+                        <span>오전 코스 (10:00 ~ 12:30)</span>
+                    </div>
+                    <h5 class="text-sm font-bold text-slate-800">${rec.healing.name} 산책</h5>
+                    <p class="text-xs text-slate-500 mt-1">맑은 공기를 마시며 한가롭게 사진 촬영 및 마음 정돈하기</p>
+                </div>
+                <div class="p-4 rounded-2xl bg-white/80 border border-slate-200/80 shadow-xs">
+                    <div class="flex items-center gap-2 text-xs font-bold text-amber-700 mb-1">
+                        <i data-lucide="utensils" class="w-4 h-4"></i>
+                        <span>점심 코스 (12:30 ~ 02:00)</span>
+                    </div>
+                    <h5 class="text-sm font-bold text-slate-800">${rec.restaurant.name} 미식 탐방</h5>
+                    <p class="text-xs text-slate-500 mt-1">대표 시그니처 메뉴로 입안 가득 현지의 풍미 즐기기</p>
+                </div>
+                <div class="p-4 rounded-2xl bg-white/80 border border-slate-200/80 shadow-xs">
+                    <div class="flex items-center gap-2 text-xs font-bold text-indigo-700 mb-1">
+                        <i data-lucide="camera" class="w-4 h-4"></i>
+                        <span>오후 코스 (02:30 ~ 05:30)</span>
+                    </div>
+                    <h5 class="text-sm font-bold text-slate-800">${rec.hotspot.name} 방문</h5>
+                    <p class="text-xs text-slate-500 mt-1">요즘 떠오르는 포토존에서 인생샷 남기고 디저트 즐기기</p>
+                </div>
+            `;
+
+            // Dynamic AI Tip
+            document.getElementById('aiTravelTip').textContent = `${dest}의 현재 기온은 ${weather.temp}°C (${weather.condition})입니다. ${weather.outfitTip} 이동 시 대중교통 앱의 실시간 도착 정보를 활용하시면 더욱 편리합니다.`;
+
+            // Save state object
+            currentPlanData = {
+                id: Date.now(),
+                destination: dest,
+                mood: mood,
+                budget: budget,
+                weather: `${weather.condition} (${weather.temp}°C)`,
+                hotspot: rec.hotspot.name,
+                healing: rec.healing.name,
+                restaurant: rec.restaurant.name,
+                date: new Date().toLocaleDateString('ko-KR')
+            };
+        }
+
+        // Copy Itinerary to Clipboard
+        function copyItineraryToClipboard() {
+            if (!currentPlanData) return;
+
+            const text = `[AI여행비서 실시간 맞춤 가이드]\n📍 여행지: ${currentPlanData.destination}\n☀️ 실시간 날씨: ${currentPlanData.weather}\n\n[핵심 추천 장소 3선]\n🔥 핫플레이스: ${currentPlanData.hotspot}\n🌿 힐링 스팟: ${currentPlanData.healing}\n🍜 로컬 맛집: ${currentPlanData.restaurant}\n\n💡 여행 팁: ${document.getElementById('weatherOutfitTip').textContent}`;
+
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            showToast('실시간 가이드가 클립보드에 복사되었습니다!');
+        }
+
+        // LocalStorage Save Plan
+        function saveCurrentPlan() {
+            if (!currentPlanData) return;
+
+            let saved = JSON.parse(localStorage.getItem('ai_travel_plans') || '[]');
+            const exists = saved.some(p => p.destination === currentPlanData.destination && p.date === currentPlanData.date);
+            
+            if (exists) {
+                showToast('이미 저장된 동일한 일정입니다!');
+                return;
+            }
+
+            saved.unshift(currentPlanData);
+            localStorage.setItem('ai_travel_plans', JSON.stringify(saved));
+            updateSavedBadgeCount();
+            showToast('저장함에 추가되었습니다!');
+        }
+
+        // Toggle Saved Plans Modal
+        function toggleSavedModal() {
+            const modal = document.getElementById('savedModal');
+            const isHidden = modal.classList.contains('hidden');
+
+            if (isHidden) {
+                renderSavedList();
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Update Badge Count
+        function updateSavedBadgeCount() {
+            const saved = JSON.parse(localStorage.getItem('ai_travel_plans') || '[]');
+            const badge = document.getElementById('savedBadge');
+            
+            if (saved.length > 0) {
+                badge.textContent = saved.length;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // Render Saved Modal Items
+        function renderSavedList() {
+            const container = document.getElementById('savedListContainer');
+            const saved = JSON.parse(localStorage.getItem('ai_travel_plans') || '[]');
+
+            if (saved.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-400">
+                        <i data-lucide="bookmark-x" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                        <p class="text-xs">저장된 여행 코스가 없습니다.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = saved.map(item => `
+                <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                        <div class="flex items-center gap-1.5 mb-0.5">
+                            <span class="text-sm font-extrabold text-slate-800">${item.destination}</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-teal-100 text-teal-800 rounded-full font-bold">${item.weather}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 truncate max-w-[220px]">🔥 ${item.hotspot} | 🌿 ${item.healing}</p>
+                    </div>
+                    <button onclick="deleteSavedPlan(${item.id})" class="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        // Delete Saved Plan
+        function deleteSavedPlan(id) {
+            let saved = JSON.parse(localStorage.getItem('ai_travel_plans') || '[]');
+            saved = saved.filter(item => item.id !== id);
+            localStorage.setItem('ai_travel_plans', JSON.stringify(saved));
+            
+            renderSavedList();
+            updateSavedBadgeCount();
+            showToast('일정이 삭제되었습니다.');
+        }
+    </script>
+</body>
+</html>
